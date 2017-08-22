@@ -12,14 +12,15 @@
 
 namespace app\socket\controller;
 
+use redis\BaseRedis;
+
 use think\Log;
 use think\worker\Server;
 use Workerman\Lib\Timer;
-use GatewayWorker\Lib\Gateway;
 
 class Worker extends Server
 {
-    protected $socket = 'websocket://0.0.0.0:2346';
+    protected $socket = 'websocket://0.0.0.0:12358';
 
     /**
      * 收到信息
@@ -28,47 +29,24 @@ class Worker extends Server
      */
     public function onMessage($connection, $data)
     {
-        // 给connection临时设置一个lastMessageTime属性，用来记录上次收到消息的时间
-//        $connection->lastMessageTime = time();
-//        Gateway::sendToAll($data);
         while (true) {
-            $rand = rand(00000000, 99999999);
-            $sendData = json_encode(['data' => $rand, 'errcode' => 0, 'errmsg' => $data]);
-//            $connection->send($sendData);
-            $this->broadcast($connection,$sendData);
-            Log::info("发送的信息为" . $rand);
-            sleep(2);
+            $this->broadcast($connection,$data);
+            sleep(6);
         }
-//        if (!isset($connection->name)) {
-//            $data = json_decode($data, true);
-//            if (!isset($data['name'])) {
-//                return $connection->close("auth fail and close 1");
-//            }
-//            $connection->name = $data['name'];
-//            return $this->broadcast($connection->name . "Login");
-//        }
-
-//        while (true) {
-//            $rand = rand(00000000, 99999999);
-//            $this->broadcast($connection->name . "said : ".$sendData);
-//            foreach ($this->worker->connections as $connection) {
-//                $sendData = json_encode(['data' => $connection->id, 'errcode' => 0, 'errmsg' => 'success ']);
-//                $connection->send($sendData);
-//            }
-//            $connection->send($sendData);
-//            sleep(2);
-//        }
     }
 
     /**
      * 发送消息 $connections
      * @param $msg
      */
-    public function broadcast($connection,$msg)
+    public function broadcast($connection,$data)
     {
-        $connection->send($msg);
+        $arrData = json_decode($data);
+        $res = $this->redisLogin($arrData);
+        Log::info("发送的信息为 : " . $res);
+        $sendData = json_encode(['data' => $res, 'errcode' => 0, 'errmsg' => $data]);
+        $connection->send($sendData);
     }
-
     /**
      * 当连接建立时触发的回调函数
      * @param $connection
@@ -129,4 +107,16 @@ class Worker extends Server
         echo $worker->id . "\r\n";
     }
 
+    public function redisLogin($data)
+    {
+        $redis = BaseRedis::Instance();
+        $redis->connect("122.224.187.162",63700);
+        $redis->auth("jNAH2AuKDV8FgqrAgcS4tLdS7ZERAqa5twIpJuLOQvJc+mTTX3tzw5CFCzUEjUpNVYmfUQvhc37h2AsCpbbTdazXEAxCNzertPNecJZxHv0=");
+        //通过索引获取列表中的元素
+        $need = $redis->lIndex("REDIS_MEMORY_INFO:001",-1);
+        return $need;
+    }
+
 }
+
+
